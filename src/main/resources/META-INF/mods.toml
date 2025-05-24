@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="modmobspawniacontroller"
+version="1.0.0"
+displayName="JDO IA SPAWN MOBS CONTROLLER"
+updateJSONURL="https://example.com/update.json"
+displayURL="https://example.com"
+logoFile="logo.png"
+credits="Thanks to the Minecraft Forge team!"
+authors="JDO"
+description='''
+Mob created by JDO for custom spawn and custom ia of mobs during game
+'''
+
+[[dependencies.modmobspawniacontroller]]
+modId="forge"
+mandatory=true
+versionRange="[47.4.0,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.modmobspawniacontroller]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="BOTH"

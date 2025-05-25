@@ -10,10 +10,15 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.player.Player;
+
+import static com.mojang.text2speech.Narrator.LOGGER;
+
 
 public class SpawnMobCommand {
 
@@ -51,10 +56,12 @@ public class SpawnMobCommand {
                                                                                     for (int i = 0; i < count; i++) {
                                                                                         Entity entity = type.create(level);
                                                                                         if (entity instanceof Mob mob) {
+
                                                                                             double offsetX = (Math.random() - 0.5) * 4;
                                                                                             double offsetZ = (Math.random() - 0.5) * 4;
                                                                                             mob.setPos(x + offsetX, y, z + offsetZ);
                                                                                             level.addFreshEntity(mob);
+
                                                                                             mob.goalSelector.addGoal(1, new BreakBlocksToBedGoal(mob, target));
                                                                                         }
                                                                                     }

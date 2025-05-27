@@ -1,5 +1,6 @@
 package com.jdo.CustomMobsSpawnIa.ai;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.monster.Creeper;
@@ -7,19 +8,18 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import java.util.EnumSet;
 
+
 public class BreakBlocksToBedGoal extends Goal {
 
     private BlockPos breakingBlockFront = null;
-    private BlockPos breakingBlockEast = null;
-    private BlockPos breakingBlockWest = null;
+    private BlockState stateBlockFront = null;
     private int breakProgressFront = 0;
-    private int breakProgressEast = 0;
-    private int breakProgressWest = 0;
     private static final int BREAK_TIME = 40;
     private final Mob mob;
     private final BlockPos targetBed;
@@ -41,9 +41,9 @@ public class BreakBlocksToBedGoal extends Goal {
         BlockPos basePos;
 
         if (id == 1) {
-            basePos = new BlockPos(6, -60, -8);
+            basePos = new BlockPos(6, -63, -8);
         } else if (id == 0) {
-            basePos = new BlockPos(12, -60, -8);
+            basePos = new BlockPos(12, -63, -8);
         } else {
             basePos = mob.blockPosition(); // fallback neutre
         }
@@ -59,7 +59,8 @@ public class BreakBlocksToBedGoal extends Goal {
                     BlockPos checkPos = basePos.offset(x, y, z);
                     BlockState state = mob.level().getBlockState(checkPos);
 
-                    if (state.getBlock() instanceof BedBlock) {
+                    if (state.getBlock() instanceof BedBlock bedBlock) {
+
                         double dist = checkPos.distSqr(basePos);
                         if (dist < closestDistance) {
                             closestDistance = dist;
@@ -71,8 +72,10 @@ public class BreakBlocksToBedGoal extends Goal {
         }
 
         if (closestBed != null) {
+            LOGGER.info("found closestBed");
             return closestBed;
         } else {
+            LOGGER.info("found basePos");
             return basePos;
         }
     }
@@ -111,33 +114,39 @@ public class BreakBlocksToBedGoal extends Goal {
                     30.0F,
                     30.0F
             );
-            if (mob.distanceToSqr(targetBed.getX(), targetBed.getY(), targetBed.getZ()) > 2) {
-                mob.getNavigation().moveTo(targetBed.getX(), targetBed.getY(), targetBed.getZ(), 1.0D);
-            } else {
-               if (mob instanceof Creeper) {
-                    if (mob.distanceToSqr(targetBed.getX(), targetBed.getY(), targetBed.getZ()) < 2) {
-                        mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
-                        mob.discard(); // supprime le creeper
-                    }
+            if (breakingBlockFront != null) {
+                LOGGER.info("current target {}", breakingBlockFront);
+            }
+            if (breakingBlockFront == null || stateBlockFront.getBlock() instanceof BedBlock) {
+                if (mob.distanceToSqr(targetBed.getX(), targetBed.getY(), targetBed.getZ()) > 2) {
+                    LOGGER.info("Move to bed");
+                    mob.getNavigation().moveTo(targetBed.getX(), targetBed.getY(), targetBed.getZ(), 1.0D);
                 } else {
-                   BlockState state = mob.level().getBlockState(targetBed);
+                    if (mob instanceof Creeper) {
+                        if (mob.distanceToSqr(targetBed.getX(), targetBed.getY(), targetBed.getZ()) < 2) {
+                            mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
+                            mob.discard(); // supprime le creeper
+                        }
+                    } else {
+                        BlockState state = mob.level().getBlockState(targetBed);
+                        if (state.getBlock() instanceof BedBlock) {
+                            mob.level().destroyBlock(targetBed, true);
+                            // 🔄 Détermine l'autre moitié du lit
+                            boolean isHead = state.getValue(BedBlock.PART) == BedPart.HEAD;
+                            BlockPos otherHalf = isHead
+                                    ? targetBed.relative(state.getValue(BedBlock.FACING).getOpposite())
+                                    : targetBed.relative(state.getValue(BedBlock.FACING));
 
-                   if (state.getBlock() instanceof BedBlock) {
-                       mob.level().destroyBlock(targetBed, true);
-
-                       // 🔄 Détermine l'autre moitié du lit
-                       boolean isHead = state.getValue(BedBlock.PART) == BedPart.HEAD;
-                       BlockPos otherHalf = isHead
-                               ? targetBed.relative(state.getValue(BedBlock.FACING).getOpposite())
-                               : targetBed.relative(state.getValue(BedBlock.FACING));
-
-                       BlockState otherState = mob.level().getBlockState(otherHalf);
-                       if (otherState.getBlock() instanceof BedBlock) {
-                           mob.level().destroyBlock(otherHalf, true);
-                           LOGGER.info("Lit cassé : {} et {}", targetBed, otherHalf);
-                       }
-                   }
-               }
+                            BlockState otherState = mob.level().getBlockState(otherHalf);
+                            if (otherState.getBlock() instanceof BedBlock) {
+                                mob.level().destroyBlock(otherHalf, true);
+                                LOGGER.info("Lit cassé : {} et {}", targetBed, otherHalf);
+                            }
+                        }
+                    }
+                }
+            } else {
+                mob.getNavigation().stop();
             }
 
             // Essaye de casser jusqu'à 3 blocs de hauteur devant le mob
@@ -145,8 +154,16 @@ public class BreakBlocksToBedGoal extends Goal {
                 for (int i = 0; i <= 2; i++) {
                     BlockPos aheadFront = mob.blockPosition().relative(mob.getDirection()).above(i);
                     BlockState blockAheadFront = mob.level().getBlockState(aheadFront);
+                    ResourceLocation id = ForgeRegistries.BLOCKS.getKey(blockAheadFront.getBlock());
+
+                    if (id != null) {
+                        System.out.println("mob pos: " + aheadFront );
+                        System.out.println("Block registry name: " + id.toString());
+                    }
                     if (!blockAheadFront.isAir() && blockAheadFront.getDestroySpeed(mob.level(), aheadFront) >= 0) {
+                        LOGGER.info("cible un bloc");
                         breakingBlockFront = aheadFront;
+                        stateBlockFront = blockAheadFront;
                         breakProgressFront = 0;
                         return;
                     }
@@ -154,46 +171,11 @@ public class BreakBlocksToBedGoal extends Goal {
             } else {
                 breakProgressFront++;
                 if (breakProgressFront >= BREAK_TIME) {
+                    LOGGER.info("casse un block");
                     mob.level().destroyBlock(breakingBlockFront, true);
                     breakingBlockFront = null;
+                    stateBlockFront = null;
                     breakProgressFront = 0;
-                }
-            }
-            if (breakingBlockEast == null) {
-                for (int i = 0; i <= 2; i++) {
-                    BlockPos aheadEast = mob.blockPosition().relative(mob.getDirection()).east(i);
-                    BlockState blockAheadEast = mob.level().getBlockState(aheadEast);
-                    if (!blockAheadEast.isAir() && blockAheadEast.getDestroySpeed(mob.level(), aheadEast) >= 0) {
-                        breakingBlockEast = aheadEast;
-                        breakProgressEast = 0;
-                        return;
-                    }
-                }
-            } else {
-                breakProgressEast++;
-                if (breakProgressEast >= BREAK_TIME) {
-                    mob.level().destroyBlock(breakingBlockEast, true);
-                    breakingBlockEast = null;
-                    breakProgressEast = 0;
-                }
-            }
-            if (breakingBlockWest == null) {
-                for (int i = 0; i <= 2; i++) {
-                    BlockPos aheadWest = mob.blockPosition().relative(mob.getDirection()).west(i);
-                    BlockState blockAheadWest = mob.level().getBlockState(aheadWest);
-
-                    if (!blockAheadWest.isAir() && blockAheadWest.getDestroySpeed(mob.level(), aheadWest) >= 0) {
-                        breakingBlockWest = aheadWest;
-                        breakProgressWest = 0;
-                        return;
-                    }
-                }
-            } else {
-                breakProgressWest++;
-                if (breakProgressWest >= BREAK_TIME) {
-                    mob.level().destroyBlock(breakingBlockWest, true);
-                    breakingBlockWest = null;
-                    breakProgressWest = 0;
                 }
             }
         }

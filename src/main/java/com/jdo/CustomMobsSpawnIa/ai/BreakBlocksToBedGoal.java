@@ -1,5 +1,6 @@
 package com.jdo.CustomMobsSpawnIa.ai;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -9,11 +10,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import java.util.EnumSet;
+
 
 
 public class BreakBlocksToBedGoal extends Goal {
@@ -53,11 +54,11 @@ public class BreakBlocksToBedGoal extends Goal {
         } else if (id == 0) {
             basePos = new BlockPos(12, -63, -8);
         } else {
-            basePos = mob.blockPosition(); // fallback neutre
+            basePos = mob.blockPosition();
         }
 
 
-        int radius = 4; // petit rayon autour de la coordonnée en dur
+        int radius = 4;
         BlockPos closestBed = null;
         double closestDistance = Double.MAX_VALUE;
 
@@ -68,7 +69,6 @@ public class BreakBlocksToBedGoal extends Goal {
                     BlockState state = mob.level().getBlockState(checkPos);
 
                     if (state.getBlock() instanceof BedBlock bedBlock) {
-
                         double dist = checkPos.distSqr(basePos);
                         if (dist < closestDistance) {
                             closestDistance = dist;
@@ -87,6 +87,11 @@ public class BreakBlocksToBedGoal extends Goal {
     }
 
     @Override
+    public void tick() {
+        tickBreakingPathv2(mob, targetBed, targetBedOtherHalf);
+    }
+
+    @Override
     public boolean canUse() {
         if (targetPlayer != null) {
             if (!targetPlayer.isAlive()) {
@@ -101,7 +106,42 @@ public class BreakBlocksToBedGoal extends Goal {
         }
     }
 
-    public void tickBreakingPath(Mob mob, BlockPos bedPos , BlockPos bedPosOtherHalf) {
+    public static BlockPos scan3DBoxInFrontOfMob(Mob mob, Level level, BlockPos targetPos) {
+        Vec3 targetCenter = new Vec3(targetPos.getX() + 0.5, targetPos.getY() + 0.5, targetPos.getZ() + 0.5);
+        Vec3 direction = targetCenter.subtract(mob.position()).normalize();
+
+        int height = (int) Math.ceil(mob.getBbHeight()) - 1;
+        int width = (int) Math.ceil(mob.getBbWidth()) > 1 ? (int) Math.ceil(mob.getBbWidth()) / 2 : 0;
+        int depth = (int) Math.ceil(mob.getBbWidth());
+        Vec3 base = mob.position();
+
+        for (int dz = 1; dz <= depth; dz++) {
+            Vec3 forward = base.add(direction.scale(dz));
+            for (int dx = -width; dx <= width; dx++) {
+                for (int dy = 0; dy <= height; dy++) {
+                    Vec3 offset = forward.add(
+                            mob.getLookAngle().yRot((float)Math.PI / 2).normalize().scale(dx)
+                    ).add(0, dy, 0);
+
+                    BlockPos checkPos = new BlockPos(
+                            (int) Math.floor(offset.x),
+                            (int) Math.floor(offset.y),
+                            (int) Math.floor(offset.z)
+                    );
+
+                    BlockState state = level.getBlockState(checkPos);
+                    ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+                    if (!state.isAir() && state.canOcclude() && id.toString().equals("minecraft:oak_planks")) {
+                        return checkPos;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public void tickBreakingPathv2(Mob mob, BlockPos bedPos , BlockPos bedPosOtherHalf) {
         Level level = mob.level();
         if (mob.getLastAttacker() instanceof Player player) {
             if (player.isAlive()) {
@@ -117,11 +157,85 @@ public class BreakBlocksToBedGoal extends Goal {
             if (breakingBlockFront == null) {
                 mob.getNavigation().moveTo(bedPos.getX(), bedPos.getY(), bedPos.getZ(), 1.0D);
             } else {
+                BlockState state = level.getBlockState(breakingBlockFront);
+                ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
                 mob.getNavigation().stop();
             }
 
-            if (mob.distanceToSqr(bedPos.getX(), bedPos.getY(), bedPos.getZ()) < 1.5F
-                    || mob.distanceToSqr(bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ()) < 1.5F) {
+            double margin = 1.9;
+
+
+            boolean nearBed1 =
+                    (Math.abs(mob.getX() - bedPos.getX()) - (mob.getBbWidth())) <= margin &&
+                            (Math.abs(mob.getZ() - bedPos.getZ()) - (mob.getBbWidth())) <= margin &&
+                            (Math.abs(mob.getY() - bedPos.getY()) - (mob.getBbWidth())) <= margin;
+
+            boolean nearBed2 =
+                    (Math.abs(mob.getX() - bedPosOtherHalf.getX()) - (mob.getBbWidth())) <= margin &&
+                            (Math.abs(mob.getZ() - bedPosOtherHalf.getZ()) - (mob.getBbWidth())) <= margin &&
+                            (Math.abs(mob.getY() - bedPosOtherHalf.getY()) - (mob.getBbWidth())) <= margin;
+
+            if (nearBed1 || nearBed2) {
+                ResourceLocation typeId = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
+                if (mob instanceof Creeper) {
+                    mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
+                    mob.discard();
+                } else {
+                    level.destroyBlock(bedPos, true, mob);
+                }
+            }
+
+            if (breakingBlockFront == null) {
+                BlockPos block = scan3DBoxInFrontOfMob(mob, level, bedPos);
+                if (block != null) {
+                    breakingBlockFront = block;
+                    breakProgressFront = 0;
+                    return;
+                }
+            } else {
+                // Casse du bloc : on simule une progression
+                breakProgressFront++;
+                if (breakProgressFront >= BREAK_TIME) {
+                    mob.level().destroyBlock(breakingBlockFront, true, mob);
+                    breakingBlockFront = null;
+                    breakProgressFront = 0;
+                }
+            }
+        }
+    }
+
+    /*public void tickBreakingPath(Mob mob, BlockPos bedPos , BlockPos bedPosOtherHalf) {
+        Level level = mob.level();
+        if (mob.getLastAttacker() instanceof Player player) {
+            if (player.isAlive()) {
+                breakingBlockFront = null;
+                setTargetPlayer(player);
+                mob.setTarget(player);
+            } else {
+                setTargetPlayer(null);
+            }
+        }
+
+        if (targetPlayer == null) {
+            if (breakingBlockFront == null) {
+                LOGGER.info("mob move");
+                mob.getNavigation().moveTo(bedPos.getX(), bedPos.getY(), bedPos.getZ(), 1.0D);
+            } else {
+                LOGGER.info("mob stop");
+                BlockState state = level.getBlockState(breakingBlockFront);
+                ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+                LOGGER.info("mob to because breakingBlockFront is null {}", id);
+                mob.getNavigation().stop();
+            }
+            LOGGER.info("mob pos : {} {} {}", mob.getX(), mob.getY(), mob.getZ());
+            LOGGER.info("bed pos1 : {} {} {}", bedPos.getX(), bedPos.getY(), bedPos.getZ());
+            LOGGER.info("bed pos2 : {} {} {}", bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ());
+            LOGGER.info("bed pos2 : {} {} ", mob.distanceToSqr(bedPos.getX(), bedPos.getY(), bedPos.getZ()), mob.distanceToSqr(bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ()));
+            if (mob.distanceToSqr(bedPos.getX(), bedPos.getY(), bedPos.getZ()) < 1.9F
+                    || mob.distanceToSqr(bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ()) < 1.9F) {
+                LOGGER.info("mob type : {} {}", mob.getName(), mob);
+                ResourceLocation typeId = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
+                LOGGER.info("Mob type ID: {}", typeId);
                 if (mob instanceof Creeper) {
                     mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
                     mob.discard();
@@ -137,7 +251,6 @@ public class BreakBlocksToBedGoal extends Goal {
                 Vec3 target = new Vec3(bedPos.getX() + 0.5, bedPos.getY(), bedPos.getZ() + 0.5);
 
                 Vec3 direction = target.subtract(mobCenter).normalize();
-
                 Vec3 frontVec = mob.position().add(direction);
                 int front = 0;
                 int left = 1;
@@ -163,8 +276,11 @@ public class BreakBlocksToBedGoal extends Goal {
                                 (int) Math.floor(frontVec.z + toCheck)
                         );
                         BlockState state = level.getBlockState(frontBlockPos);
-
+                        LOGGER.info("current checked {}", frontBlockPos);
                         if (!state.isAir() && state.canOcclude()) {
+                            LOGGER.info("BlockState {}", state);
+                            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+                            LOGGER.info("Bloc détecté : {}", id);
                             breakingBlockFront = frontBlockPos;
                             breakProgressFront = 0;
                             return;
@@ -180,7 +296,7 @@ public class BreakBlocksToBedGoal extends Goal {
                 }
             }
         }
-    }
+    }*/
 
     /*public void oldTickBreakingPath() {
         // Si le joueur ciblé est mort, on revient à l’objectif lit
@@ -271,10 +387,4 @@ public class BreakBlocksToBedGoal extends Goal {
             }
         }
     }*/
-
-    @Override
-    public void tick() {
-        //oldTickBreakingPath();
-        tickBreakingPath(mob, targetBed, targetBedOtherHalf);
-    }
 }

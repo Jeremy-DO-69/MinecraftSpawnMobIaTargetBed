@@ -5,7 +5,7 @@ license="MIT"
 [[mods]]
 modId="modmobspawniacontroller"
 version="1.0.0"
-displayName="JDO IA SPAWN MOBS CONTROLLER"
+displayName="SIXQUANTIC IA CONTROLLER"
 updateJSONURL="https://example.com/update.json"
 displayURL="https://example.com"
 logoFile="logo.png"

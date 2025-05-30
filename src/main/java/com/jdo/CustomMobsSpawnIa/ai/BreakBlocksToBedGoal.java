@@ -4,7 +4,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
@@ -14,7 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import java.util.EnumSet;
-
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.ForgeRegistries;
 
 
 public class BreakBlocksToBedGoal extends Goal {
@@ -46,13 +47,60 @@ public class BreakBlocksToBedGoal extends Goal {
                 : targetBed.relative(state.getValue(BedBlock.FACING));
     }
 
+    public static final Set<String> EXPLODING_MOBS = Set.of(
+            "minecraft:creeper",
+            "mutantmonsters:creeper_minion"
+    );
+
+    private static final Set<String> STATIC_ALLOWED_BLOCKS = Set.of(
+            "fetzisasiandeco:framed_block_fence",
+            "minecraft:oak_fence_gate",
+            "handcrafted:spruce_corner_trim",
+            "fetzisasiandeco:white_roof_slab_long_framed_block",
+            "fetzisasiandeco:white_roof_slab_framed_block",
+            "minecraft:soul_lantern",
+            "minecraft:stripped_spruce_log",
+            "fetzisasiandeco:light_gray_roof_block_framed_block",
+            "fetzisasiandeco:japanese3_wall_framed_block",
+            "minecraft:stripped_spruce_wood",
+            "fetzisasiandeco:japanese4_wall_framed_block",
+            "minecraft:white_concrete",
+            "fetzisasiandeco:light_gray_roof_stairs_long_framed_block",
+            "fetzisasiandeco:white_roof_stairs_framed_block",
+            "minecraft:barrel",
+            "minecraft:ladder",
+            "fetzisasiandeco:japanese2_wall_framed_block",
+            "handcrafted:jungle_fancy_bed",
+            "minecraft:spruce_trapdoor",
+            "minecraft:white_banner",
+            "fetzisasiandeco:white_roof_block_framed_block",
+            "minecraft:lantern",
+            "minecraft:dark_oak_stairs",
+            "minecraft:stone_brick_stairs",
+            "minecraft:stripped_dark_oak_log",
+            "minecraft:cracked_stone_bricks",
+            "minecraft:stone_bricks",
+            "minecraft:stone_brick_wall",
+            "supplementaries:timber_cross_brace",
+            "supplementaries:daub_cross_brace",
+            "minecraft:stripped_dark_oak_wood",
+            "minecraft:red_banner",
+            "fantasyfurniture:royal/bed_single",
+            "supplementaries:stone_tile",
+            "minecraft:oak_fence"
+    );
+
+    public static boolean isBlockAllowed(String id) {
+        return STATIC_ALLOWED_BLOCKS.contains(id);
+    }
+
    private BlockPos getBedPos(int id) {
         BlockPos basePos;
 
         if (id == 1) {
-            basePos = new BlockPos(6, -63, -8);
+            basePos = new BlockPos(3, -15, 35);
         } else if (id == 0) {
-            basePos = new BlockPos(12, -63, -8);
+            basePos = new BlockPos(-2, -15, -33);
         } else {
             basePos = mob.blockPosition();
         }
@@ -131,7 +179,7 @@ public class BreakBlocksToBedGoal extends Goal {
 
                     BlockState state = level.getBlockState(checkPos);
                     ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-                    if (!state.isAir() && state.canOcclude() && id.toString().equals("minecraft:oak_planks")) {
+                    if (!state.isAir() && state.canOcclude() && isBlockAllowed(id.toString())) {
                         return checkPos;
                     }
                 }
@@ -157,8 +205,6 @@ public class BreakBlocksToBedGoal extends Goal {
             if (breakingBlockFront == null) {
                 mob.getNavigation().moveTo(bedPos.getX(), bedPos.getY(), bedPos.getZ(), 1.0D);
             } else {
-                BlockState state = level.getBlockState(breakingBlockFront);
-                ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
                 mob.getNavigation().stop();
             }
 
@@ -176,8 +222,9 @@ public class BreakBlocksToBedGoal extends Goal {
                             (Math.abs(mob.getY() - bedPosOtherHalf.getY()) - (mob.getBbWidth())) <= margin;
 
             if (nearBed1 || nearBed2) {
-                ResourceLocation typeId = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
-                if (mob instanceof Creeper) {
+
+                ResourceLocation id = ForgeRegistries.ENTITY_TYPES.getKey(mob.getType());
+                if (id != null && EXPLODING_MOBS.contains(id.toString())) {
                     mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
                     mob.discard();
                 } else {
@@ -190,10 +237,8 @@ public class BreakBlocksToBedGoal extends Goal {
                 if (block != null) {
                     breakingBlockFront = block;
                     breakProgressFront = 0;
-                    return;
                 }
             } else {
-                // Casse du bloc : on simule une progression
                 breakProgressFront++;
                 if (breakProgressFront >= BREAK_TIME) {
                     mob.level().destroyBlock(breakingBlockFront, true, mob);
@@ -203,188 +248,4 @@ public class BreakBlocksToBedGoal extends Goal {
             }
         }
     }
-
-    /*public void tickBreakingPath(Mob mob, BlockPos bedPos , BlockPos bedPosOtherHalf) {
-        Level level = mob.level();
-        if (mob.getLastAttacker() instanceof Player player) {
-            if (player.isAlive()) {
-                breakingBlockFront = null;
-                setTargetPlayer(player);
-                mob.setTarget(player);
-            } else {
-                setTargetPlayer(null);
-            }
-        }
-
-        if (targetPlayer == null) {
-            if (breakingBlockFront == null) {
-                LOGGER.info("mob move");
-                mob.getNavigation().moveTo(bedPos.getX(), bedPos.getY(), bedPos.getZ(), 1.0D);
-            } else {
-                LOGGER.info("mob stop");
-                BlockState state = level.getBlockState(breakingBlockFront);
-                ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-                LOGGER.info("mob to because breakingBlockFront is null {}", id);
-                mob.getNavigation().stop();
-            }
-            LOGGER.info("mob pos : {} {} {}", mob.getX(), mob.getY(), mob.getZ());
-            LOGGER.info("bed pos1 : {} {} {}", bedPos.getX(), bedPos.getY(), bedPos.getZ());
-            LOGGER.info("bed pos2 : {} {} {}", bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ());
-            LOGGER.info("bed pos2 : {} {} ", mob.distanceToSqr(bedPos.getX(), bedPos.getY(), bedPos.getZ()), mob.distanceToSqr(bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ()));
-            if (mob.distanceToSqr(bedPos.getX(), bedPos.getY(), bedPos.getZ()) < 1.9F
-                    || mob.distanceToSqr(bedPosOtherHalf.getX(), bedPosOtherHalf.getY(), bedPosOtherHalf.getZ()) < 1.9F) {
-                LOGGER.info("mob type : {} {}", mob.getName(), mob);
-                ResourceLocation typeId = BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
-                LOGGER.info("Mob type ID: {}", typeId);
-                if (mob instanceof Creeper) {
-                    mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
-                    mob.discard();
-                } else {
-                    level.destroyBlock(bedPos, true, mob);
-                }
-            }
-
-            if (breakingBlockFront == null) {
-                LOGGER.info("mob height {} {}", mob.getBbHeight(), (int)((mob.getBbHeight() % 10) + 1));
-
-                Vec3 mobCenter = mob.position().add(0, mob.getBbHeight(), 0);
-                Vec3 target = new Vec3(bedPos.getX() + 0.5, bedPos.getY(), bedPos.getZ() + 0.5);
-
-                Vec3 direction = target.subtract(mobCenter).normalize();
-                Vec3 frontVec = mob.position().add(direction);
-                int front = 0;
-                int left = 1;
-                int right = 2;
-                for (int x = 1; x <= 3; x++) {
-                    for (int i = 1; i <= (int)((mob.getBbHeight() % 10) + 1); i++) {
-                        int toCheck = 0;
-                        switch (x) {
-                            case 1:
-                                toCheck = front;
-                                break;
-                            case 2:
-                                toCheck = left;
-                                break;
-                            case 3:
-                                toCheck = right;
-                                break;
-
-                        }
-                        BlockPos frontBlockPos = new BlockPos(
-                                (int) Math.floor(frontVec.x),
-                                (int) Math.floor(frontVec.y + i),
-                                (int) Math.floor(frontVec.z + toCheck)
-                        );
-                        BlockState state = level.getBlockState(frontBlockPos);
-                        LOGGER.info("current checked {}", frontBlockPos);
-                        if (!state.isAir() && state.canOcclude()) {
-                            LOGGER.info("BlockState {}", state);
-                            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-                            LOGGER.info("Bloc détecté : {}", id);
-                            breakingBlockFront = frontBlockPos;
-                            breakProgressFront = 0;
-                            return;
-                        }
-                    }
-                }
-            } else {
-                breakProgressFront++;
-                if (breakProgressFront >= BREAK_TIME) {
-                    mob.level().destroyBlock(breakingBlockFront, true);
-                    breakingBlockFront = null;
-                    breakProgressFront = 0;
-                }
-            }
-        }
-    }*/
-
-    /*public void oldTickBreakingPath() {
-        // Si le joueur ciblé est mort, on revient à l’objectif lit
-        if (mob.getLastAttacker() instanceof Player player) {
-            if (player.isAlive()) {
-                setTargetPlayer(player);
-                mob.setTarget(player);
-            } else {
-                setTargetPlayer(null);
-            }
-        }
-        if (targetPlayer == null) {
-            mob.getLookControl().setLookAt(
-                    targetBed.getX() + 0.5D,
-                    targetBed.getY() + 0.5D,
-                    targetBed.getZ() + 0.5D,
-                    30.0F,
-                    30.0F
-            );
-            if (breakingBlockFront != null) {
-                LOGGER.info("current target {}", breakingBlockFront);
-            }
-            if (breakingBlockFront == null || stateBlockFront.getBlock() instanceof BedBlock) {
-                if (mob.distanceToSqr(targetBed.getX(), targetBed.getY(), targetBed.getZ()) > 2) {
-                    LOGGER.info("Move to bed");
-                    mob.getNavigation().moveTo(targetBed.getX(), targetBed.getY(), targetBed.getZ(), 1.0D);
-                } else {
-                    if (mob instanceof Creeper) {
-                        if (mob.distanceToSqr(targetBed.getX(), targetBed.getY(), targetBed.getZ()) < 2) {
-                            mob.level().explode(mob, mob.getX(), mob.getY(), mob.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
-                            mob.discard(); // supprime le creeper
-                        }
-                    } else {
-                        BlockState state = mob.level().getBlockState(targetBed);
-                        if (state.getBlock() instanceof BedBlock) {
-                            mob.level().destroyBlock(targetBed, true);
-                            // 🔄 Détermine l'autre moitié du lit
-                            boolean isHead = state.getValue(BedBlock.PART) == BedPart.HEAD;
-
-
-                            BlockPos otherHalf = isHead
-                                    ? targetBed.relative(state.getValue(BedBlock.FACING).getOpposite())
-                                    : targetBed.relative(state.getValue(BedBlock.FACING));
-
-                            BlockState otherState = mob.level().getBlockState(otherHalf);
-                            if (otherState.getBlock() instanceof BedBlock) {
-                                mob.level().destroyBlock(otherHalf, true);
-                                LOGGER.info("Lit cassé : {} et {}", targetBed, otherHalf);
-                            }
-                        }
-                    }
-                }
-            } else {
-                mob.getNavigation().stop();
-            }
-
-
-
-
-            // Essaye de casser jusqu'à 3 blocs de hauteur devant le mob
-            if (breakingBlockFront == null) {
-                for (int i = 0; i <= 2; i++) {
-                    BlockPos aheadFront = mob.blockPosition().relative(mob.getDirection()).above(i);
-                    BlockState blockAheadFront = mob.level().getBlockState(aheadFront);
-                    ResourceLocation id = ForgeRegistries.BLOCKS.getKey(blockAheadFront.getBlock());
-
-                    if (id != null) {
-                        System.out.println("mob pos: " + aheadFront );
-                        System.out.println("Block registry name: " + id.toString());
-                    }
-                    if (!blockAheadFront.isAir() && blockAheadFront.getDestroySpeed(mob.level(), aheadFront) >= 0) {
-                        LOGGER.info("cible un bloc");
-                        breakingBlockFront = aheadFront;
-                        stateBlockFront = blockAheadFront;
-                        breakProgressFront = 0;
-                        return;
-                    }
-                }
-            } else {
-                breakProgressFront++;
-                if (breakProgressFront >= BREAK_TIME) {
-                    LOGGER.info("casse un block");
-                    mob.level().destroyBlock(breakingBlockFront, true);
-                    breakingBlockFront = null;
-                    stateBlockFront = null;
-                    breakProgressFront = 0;
-                }
-            }
-        }
-    }*/
 }

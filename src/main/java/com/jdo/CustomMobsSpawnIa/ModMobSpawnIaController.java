@@ -22,9 +22,9 @@ public class ModMobSpawnIaController {
         LOGGER.info("ModMobSpawnIaController chargé avec succès !");
     }
 
-    @SubscribeEvent
+    /*@SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         SpawnMobCommand.register(event.getDispatcher());
         LOGGER.info("Commande /spawnmob enregistrée !");
-    }
+    }*/
 }

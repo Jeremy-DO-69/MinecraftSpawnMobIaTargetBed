@@ -96,7 +96,7 @@ public class SpawnMobCommand {
         return 1;
     }
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    /*public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("spawnwave")
                         .then(Commands.argument("modid", StringArgumentType.word())
@@ -126,5 +126,5 @@ public class SpawnMobCommand {
                                                                                     return result;
                                                                                 }))))))))
                 );
-    }
+    }*/
 }

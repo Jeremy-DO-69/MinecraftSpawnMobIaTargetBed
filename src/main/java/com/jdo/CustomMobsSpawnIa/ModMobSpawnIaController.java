@@ -15,10 +15,8 @@ public class ModMobSpawnIaController {
     private static final Logger LOGGER = LoggerFactory.getLogger("ModMobSpawnIa");
 
     public ModMobSpawnIaController() {
-        // Enregistrement des événements Forge
         MinecraftForge.EVENT_BUS.register(this);
 
-        // Log au moment du chargement du mod
         LOGGER.info("ModMobSpawnIaController chargé avec succès !");
     }
 

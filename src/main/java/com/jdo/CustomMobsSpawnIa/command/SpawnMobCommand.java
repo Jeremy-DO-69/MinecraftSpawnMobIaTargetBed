@@ -1,27 +1,15 @@
 package com.jdo.CustomMobsSpawnIa.command;
 
 import com.jdo.CustomMobsSpawnIa.ai.BreakBlocksToBedGoal;
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraftforge.common.capabilities.CapabilityManager;
-import net.minecraftforge.common.capabilities.CapabilityToken;
 import net.minecraftforge.registries.ForgeRegistries;
-
-import java.lang.reflect.Method;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import static com.mojang.text2speech.Narrator.LOGGER;
@@ -74,7 +62,7 @@ public class SpawnMobCommand {
                 toRemove.size(), goalClass.getSimpleName(), mob.getType());
     }
 
-    public static int spawnWave(ServerLevel level, ResourceLocation id, int count, int target, double x, double y, double z) {
+    public static int spawnWave(ServerLevel level, ResourceLocation id, int count, BlockPos target, double x, double y, double z) {
 
         EntityType<?> type = ForgeRegistries.ENTITY_TYPES.getValue(id);
         if (type == null) {

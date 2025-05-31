@@ -34,10 +34,10 @@ public class BreakBlocksToBedGoal extends Goal {
     }
 
 
-    public BreakBlocksToBedGoal(Mob mob, int bedId) {
+    public BreakBlocksToBedGoal(Mob mob, BlockPos targetBed) {
         this.mob = mob;
         this.setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.LOOK));
-        this.targetBed = getBedPos(bedId);
+        this.targetBed = targetBed;
         BREAK_TIME = 60 - (int) (((mob.getBbHeight() % 10) + 1) * 10);
         LOGGER.info(" Breaktime of {} = {}", mob.getName() , BREAK_TIME);
         BlockState state = mob.level().getBlockState(targetBed);
@@ -92,46 +92,6 @@ public class BreakBlocksToBedGoal extends Goal {
 
     public static boolean isBlockAllowed(String id) {
         return STATIC_ALLOWED_BLOCKS.contains(id);
-    }
-
-   private BlockPos getBedPos(int id) {
-        BlockPos basePos;
-
-        if (id == 1) {
-            basePos = new BlockPos(3, -15, 35);
-        } else if (id == 0) {
-            basePos = new BlockPos(-2, -15, -33);
-        } else {
-            basePos = mob.blockPosition();
-        }
-
-
-        int radius = 4;
-        BlockPos closestBed = null;
-        double closestDistance = Double.MAX_VALUE;
-
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -2; y <= 2; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    BlockPos checkPos = basePos.offset(x, y, z);
-                    BlockState state = mob.level().getBlockState(checkPos);
-
-                    if (state.getBlock() instanceof BedBlock bedBlock) {
-                        double dist = checkPos.distSqr(basePos);
-                        if (dist < closestDistance) {
-                            closestDistance = dist;
-                            closestBed = checkPos;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (closestBed != null) {
-            return closestBed;
-        } else {
-            return basePos;
-        }
     }
 
     @Override

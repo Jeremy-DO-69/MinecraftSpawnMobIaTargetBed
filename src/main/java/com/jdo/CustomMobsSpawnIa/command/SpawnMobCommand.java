@@ -93,13 +93,13 @@ public class SpawnMobCommand {
         return 1;
     }
 
+    //todo faire un catch du side du joueur + random sur le spawn tiktok
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("spawnwave")
                         .then(Commands.argument("modid", StringArgumentType.word())
                                 .then(Commands.argument("mobname", StringArgumentType.word())
                                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
-                                                .then(Commands.argument("target", IntegerArgumentType.integer(0, 1))
                                                         .then(Commands.argument("x", DoubleArgumentType.doubleArg())
                                                                 .then(Commands.argument("y", DoubleArgumentType.doubleArg())
                                                                         .then(Commands.argument("z", DoubleArgumentType.doubleArg())
@@ -107,7 +107,6 @@ public class SpawnMobCommand {
                                                                                     String modid = StringArgumentType.getString(ctx, "modid");
                                                                                     String mobname = StringArgumentType.getString(ctx, "mobname");
                                                                                     int count = IntegerArgumentType.getInteger(ctx, "count");
-                                                                                    int target = IntegerArgumentType.getInteger(ctx, "target");
                                                                                     double x = DoubleArgumentType.getDouble(ctx, "x");
                                                                                     double y = DoubleArgumentType.getDouble(ctx, "y");
                                                                                     double z = DoubleArgumentType.getDouble(ctx, "z");
@@ -133,7 +132,7 @@ public class SpawnMobCommand {
                                                                                         }
                                                                                     }
                                                                                     return 0;
-                                                                                }))))))))
+                                                                                })))))))
                 );
     }
 }

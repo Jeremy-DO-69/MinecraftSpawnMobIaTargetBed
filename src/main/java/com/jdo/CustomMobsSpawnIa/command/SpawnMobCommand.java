@@ -1,17 +1,26 @@
 package com.jdo.CustomMobsSpawnIa.command;
 
 import com.jdo.CustomMobsSpawnIa.ai.BreakBlocksToBedGoal;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.registries.ForgeRegistries;
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.jdo.modbedwarsmanager.ModBedwarsManager.*;
 import static com.mojang.text2speech.Narrator.LOGGER;
 
 public class SpawnMobCommand {
@@ -84,7 +93,7 @@ public class SpawnMobCommand {
         return 1;
     }
 
-    /*public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("spawnwave")
                         .then(Commands.argument("modid", StringArgumentType.word())
@@ -105,14 +114,26 @@ public class SpawnMobCommand {
                                                                                     CommandSourceStack source = ctx.getSource();
                                                                                     ServerLevel level = source.getLevel();
                                                                                     ResourceLocation id = ResourceLocation.fromNamespaceAndPath(modid, mobname);
-                                                                                    int result = spawnWave(level, id, count, target, x, y, z);
-
-                                                                                    if (result == 0) {
-                                                                                        source.sendFailure(Component.literal("Entity not found: " + id));
-                                                                                        return result;
+                                                                                    if (ctx.getSource().getEntity() instanceof Player player) {
+                                                                                        if (player == Player1) {
+                                                                                            int result = spawnWave(level, id, count, BedPositionPlayer1, x, y, z);
+                                                                                            if (result == 0) {
+                                                                                                source.sendFailure(Component.literal("Entity not found: " + id));
+                                                                                                return result;
+                                                                                            }
+                                                                                            return result;
+                                                                                        }
+                                                                                        if (player == Player2) {
+                                                                                            int result = spawnWave(level, id, count, BedPositionPlayer2, x, y, z);
+                                                                                            if (result == 0) {
+                                                                                                source.sendFailure(Component.literal("Entity not found: " + id));
+                                                                                                return result;
+                                                                                            }
+                                                                                            return result;
+                                                                                        }
                                                                                     }
-                                                                                    return result;
+                                                                                    return 0;
                                                                                 }))))))))
                 );
-    }*/
+    }
 }

@@ -17,6 +17,8 @@ import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import static com.jdo.modbedwarsmanager.ModBedwarsManager.BedDestroyed;
+
 
 public class BreakBlocksToBedGoal extends Goal {
 
@@ -27,14 +29,15 @@ public class BreakBlocksToBedGoal extends Goal {
     private final BlockPos targetBed;
     private final BlockPos targetBedOtherHalf;
     private static final Logger LOGGER = LoggerFactory.getLogger("SpawnMobCommand");
+    private Player targetBedPlayer = null;
     private Player targetPlayer;
 
     private void setTargetPlayer(Player player) {
         targetPlayer = player;
     }
 
-
-    public BreakBlocksToBedGoal(Mob mob, BlockPos targetBed) {
+    public BreakBlocksToBedGoal(Mob mob, BlockPos targetBed, Player player) {
+        this.targetBedPlayer = player;
         this.mob = mob;
         this.setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.LOOK));
         this.targetBed = targetBed;
@@ -152,12 +155,14 @@ public class BreakBlocksToBedGoal extends Goal {
     public void tickBreakingPathv2(Mob mob, BlockPos bedPos , BlockPos bedPosOtherHalf) {
         Level level = mob.level();
         if (mob.getLastAttacker() instanceof Player player) {
-            if (player.isAlive()) {
-                breakingBlockFront = null;
-                setTargetPlayer(player);
-                mob.setTarget(player);
-            } else {
-                setTargetPlayer(null);
+            if (player == targetBedPlayer) {
+                if (player.isAlive()) {
+                    breakingBlockFront = null;
+                    setTargetPlayer(player);
+                    mob.setTarget(player);
+                } else {
+                    setTargetPlayer(null);
+                }
             }
         }
 
@@ -189,6 +194,7 @@ public class BreakBlocksToBedGoal extends Goal {
                     mob.discard();
                 } else {
                     level.destroyBlock(bedPos, true, mob);
+                    BedDestroyed(targetBedPlayer);
                 }
             }
 

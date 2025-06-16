@@ -15,7 +15,10 @@ import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.monster.Skeleton;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
 import java.util.HashSet;
 import java.util.Set;
@@ -71,8 +74,8 @@ public class SpawnMobCommand {
                 toRemove.size(), goalClass.getSimpleName(), mob.getType());
     }
 
-    public static int spawnWave(ServerLevel level, ResourceLocation id, int count, BlockPos target, double x, double y, double z) {
-
+    public static int spawnWave(ServerLevel level, ResourceLocation id, int count, BlockPos target, double x, double y, double z, Player playerTarget) {
+        LOGGER.error("spawnWave");
         EntityType<?> type = ForgeRegistries.ENTITY_TYPES.getValue(id);
         if (type == null) {
             return 0;
@@ -80,14 +83,19 @@ public class SpawnMobCommand {
         for (int i = 0; i < count; i++) {
             Entity entity = type.create(level);
             if (entity instanceof Mob mob) {
-                //logMobGoals(mob);
+                logMobGoals(mob);
                 removeTargetGoalsOfType(mob, NearestAttackableTargetGoal.class);
-                //logMobGoals(mob);
-                double offsetX = (Math.random() - 0.5) * 4;
-                double offsetZ = (Math.random() - 0.5) * 4;
-                mob.setPos(x + offsetX, y, z + offsetZ);
+                logMobGoals(mob);
+                mob.setPos(x, y, z);
+
+                if (mob instanceof Skeleton skeleton) {
+                    skeleton.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
+                }
+
+                mob.getPersistentData().putBoolean("IsBedwarsMob", true);
+                mob.getPersistentData().putBoolean("IsRedSide", (playerTarget == Player1 && Player1Side == Side.RED) || (playerTarget == Player2 && Player2Side == Side.RED));
                 level.addFreshEntity(mob);
-                mob.goalSelector.addGoal(1, new BreakBlocksToBedGoal(mob, target));
+                mob.goalSelector.addGoal(1, new BreakBlocksToBedGoal(mob, target, playerTarget));
             }
         }
         return 1;
@@ -115,7 +123,7 @@ public class SpawnMobCommand {
                                                                                     ResourceLocation id = ResourceLocation.fromNamespaceAndPath(modid, mobname);
                                                                                     if (ctx.getSource().getEntity() instanceof Player player) {
                                                                                         if (player == Player1) {
-                                                                                            int result = spawnWave(level, id, count, BedPositionPlayer1, x, y, z);
+                                                                                            int result = spawnWave(level, id, count, BedPositionPlayer1, x, y, z, player);
                                                                                             if (result == 0) {
                                                                                                 source.sendFailure(Component.literal("Entity not found: " + id));
                                                                                                 return result;
@@ -123,7 +131,7 @@ public class SpawnMobCommand {
                                                                                             return result;
                                                                                         }
                                                                                         if (player == Player2) {
-                                                                                            int result = spawnWave(level, id, count, BedPositionPlayer2, x, y, z);
+                                                                                            int result = spawnWave(level, id, count, BedPositionPlayer2, x, y, z, player);
                                                                                             if (result == 0) {
                                                                                                 source.sendFailure(Component.literal("Entity not found: " + id));
                                                                                                 return result;
